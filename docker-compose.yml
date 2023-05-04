@@ -1,0 +1,65 @@
+version: "3.1"
+services:
+  redis:
+    image: redis:alpine
+    container_name: ${APP_NAME}-redis
+    networks:
+      - ${APP_NAME}-network
+
+  postgres:
+    image: postgres:alpine
+    container_name: ${APP_NAME}-postgres
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+      - ./postgres/log:/var/log/postgresql
+      - ./dockerize/create_database.sql:/docker-entrypoint-initdb.d/create_tables.sql
+    environment:
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_DATABASE}
+    #ports:
+      #- "5432:5432"
+    networks:
+      ${APP_NAME}-network:
+        ipv4_address: ${DB_HOST}
+
+#  nginx:
+#    image: nginx:alpine
+#    container_name: ${APP_NAME}-nginx
+#    working_dir: ${APP_ROOT}
+#    volumes:
+#      - .:${APP_ROOT}
+#      - ./dockerize/nginx.conf:/etc/nginx/conf.d/nginx.conf
+#    ports:
+#      - "8000:80"
+#    networks:
+#      ${APP_NAME}-network:
+#        ipv4_address: ${APP_NETWORK}.1.3
+
+  application:
+    image: ${APP_NAME}-api
+    working_dir: ${APP_ROOT}
+    container_name: ${APP_NAME}-api
+    volumes:
+      - ./public/uploads:${APP_ROOT}/public/uploads
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    depends_on:
+      #- redis
+      - postgres
+    environment:
+      APP_ENV: local
+      CONTAINER_ROLE: app
+      APP_ROOT: ${APP_ROOT}
+    restart: unless-stopped
+    networks:
+      ${APP_NAME}-network:
+        ipv4_address: ${APP_NETWORK}.1.4
+
+networks:
+  ${APP_NAME}-network:
+    ipam:
+      driver: default
+      config:
+        - subnet: ${APP_NETWORK}.0.0/16
